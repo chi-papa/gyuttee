@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GYUTTEE - 画像圧縮ツール</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23FF6B2B'/><text x='16' y='23' font-family='Nunito,Arial,sans-serif' font-size='20' font-weight='900' fill='white' text-anchor='middle'>G</text></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Noto+Sans+JP:wght@400;700&display=swap');
+
+  :root {
+    --orange: #FF6B2B;
+    --orange-light: #FF8F5E;
+    --orange-pale: #FFF0EA;
+    --orange-dark: #E0521A;
+    --white: #FFFFFF;
+    --gray-100: #F8F8F6;
+    --gray-200: #EDEDE9;
+    --gray-400: #B0AFA8;
+    --gray-700: #4A4A46;
+    --gray-900: #1C1C1A;
+    --radius: 12px;
+    --radius-lg: 20px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-900);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--orange);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 12px rgba(255,107,43,0.3);
+  }
+
+  .logo {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+    font-size: 2rem;
+    color: var(--white);
+    letter-spacing: -1px;
+  }
+
+  .logo span {
+    display: inline-block;
+    background: rgba(255,255,255,0.25);
+    border-radius: 6px;
+    padding: 0 4px;
+  }
+
+  .tagline {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.85rem;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .drop-zone {
+    border: 2.5px dashed var(--orange-light);
+    border-radius: var(--radius-lg);
+    background: var(--white);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    background: var(--orange-pale);
+    border-color: var(--orange);
+  }
+
+  .drop-zone input[type="file"] {
+    display: none;
+  }
+
+  .drop-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .drop-zone h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--gray-700);
+    margin-bottom: 0.4rem;
+  }
+
+  .drop-zone p {
+    color: var(--gray-400);
+    font-size: 0.875rem;
+  }
+
+  .btn-upload {
+    display: inline-block;
+    margin-top: 1.2rem;
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.6rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-upload:hover { background: var(--orange-dark); }
+  .btn-upload:active { transform: scale(0.97); }
+
+  .workspace {
+    display: none;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    flex-direction: column;
+  }
+
+  .workspace.visible { display: flex; }
+
+  .panel {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .panel-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--orange);
+    margin-bottom: 1rem;
+  }
+
+  .compare-area {
+    position: relative;
+    width: 100%;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--gray-200);
+    aspect-ratio: 16/9;
+    max-height: 440px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .compare-area canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  #canvasBefore { z-index: 1; }
+  #canvasAfter { z-index: 2; clip-path: inset(0 50% 0 0); }
+
+  .divider {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 3px;
+    height: 100%;
+    background: var(--white);
+    z-index: 3;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .divider-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    background: var(--white);
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 4;
+    font-size: 1.1rem;
+    pointer-events: none;
+  }
+
+  .compare-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .label-before { color: var(--gray-400); }
+  .label-after { color: var(--orange); }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .controls { grid-template-columns: 1fr; }
+  }
+
+  .control-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  .control-group label span {
+    color: var(--orange);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--orange);
+    height: 6px;
+    cursor: pointer;
+  }
+
+  select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    background: var(--white);
+    color: var(--gray-900);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  select:focus { border-color: var(--orange); }
+
+  .resize-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .resize-row input[type="number"] {
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+
+  .resize-row input[type="number"]:focus { border-color: var(--orange); }
+  .resize-row span { text-align: center; color: var(--gray-400); font-size: 0.875rem; }
+
+  .lock-btn {
+    background: none;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--gray-400);
+    transition: all 0.15s;
+  }
+
+  .lock-btn.locked { border-color: var(--orange); color: var(--orange); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat-card {
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--gray-400);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--gray-900);
+  }
+
+  .stat-value.orange { color: var(--orange); }
+
+  .btn-download {
+    width: 100%;
+    background: var(--orange);
+    color: var(--white);
+    border: none;
+    border-radius: 10px;
+    padding: 0.875rem;
+    font-size: 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 0.5rem;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-download:hover { background: var(--orange-dark); }
+  .btn-download:active { transform: scale(0.98); }
+
+  .btn-reset {
+    width: 100%;
+    background: none;
+    color: var(--gray-400);
+    border: 1.5px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 0.65rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 0.5rem;
+  }
+
+  .btn-reset:hover { border-color: var(--gray-400); color: var(--gray-700); }
+
+  .section-divider {
+    height: 1px;
+    background: var(--gray-200);
+    margin: 1rem 0;
+  }
+
+  .warn-msg {
+    display: none;
+    margin-top: 0.75rem;
+    background: #FFF4E5;
+    border: 1.5px solid #FFB347;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #9A5A00;
+    font-weight: 700;
+  }
+
+  .warn-msg.visible { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">GYU<span>TTEE</span></div>
+    <div class="tagline">画像をギュッと圧縮・リサイズ</div>
+  </div>
+</header>
+
+<main>
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept="image/*">
+    <span class="drop-icon">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="10" width="48" height="36" rx="5" stroke="#FF6B2B" stroke-width="3" fill="none"/>
+        <circle cx="18" cy="22" r="4" fill="#FF6B2B"/>
+        <path d="M4 38 L16 26 L24 34 L34 22 L52 38" stroke="#FF6B2B" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+      </svg>
+    </span>
+    <h2>画像をドロップ、またはクリックして選択</h2>
+    <p>JPEG・PNG・WebP・GIF など対応</p>
+    <button class="btn-upload" onclick="document.getElementById('fileInput').click()">ファイルを選ぶ</button>
+  </div>
+
+  <div class="workspace" id="workspace">
+
+    <div class="panel">
+      <div class="panel-title">Before / After 比較</div>
+      <div class="compare-area" id="compareArea">
+        <canvas id="canvasBefore"></canvas>
+        <canvas id="canvasAfter"></canvas>
+        <div class="divider" id="divider">
+          <div class="divider-handle">⇔</div>
+        </div>
+      </div>
+      <div class="compare-labels">
+        <span class="label-before">◀ 元の画像</span>
+        <span class="label-after">圧縮後 ▶</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+
+      <div class="panel">
+        <div class="panel-title">圧縮設定</div>
+        <div class="controls" style="grid-template-columns: 1fr;">
+          <div class="control-group">
+            <label>出力形式 <span id="fmtLabel">JPEG</span></label>
+            <select id="formatSelect">
+              <option value="jpeg">JPEG</option>
+              <option value="png">PNG</option>
+              <option value="webp">WebP</option>
+            </select>
+          </div>
+          <div class="control-group" id="qualityGroup">
+            <label>品質 <span id="qualityVal">80%</span></label>
+            <input type="range" id="qualityRange" min="1" max="100" value="80">
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="panel-title">リサイズ</div>
+        <div class="control-group">
+          <label>サイズ <span id="dimLabel">—</span></label>
+          <select id="resizeSelect">
+            <option value="100">100%（元のサイズ）</option>
+            <option value="75">75%</option>
+            <option value="50">50%</option>
+            <option value="25">25%</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ファイル情報</div>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-label">元のサイズ</div>
+            <div class="stat-value" id="origSize">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">圧縮後</div>
+            <div class="stat-value orange" id="compSize">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">削減率</div>
+            <div class="stat-value orange" id="reduction">—</div>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="stats" style="grid-template-columns: 1fr 1fr;">
+          <div class="stat-card">
+            <div class="stat-label">元の解像度</div>
+            <div class="stat-value" id="origDim" style="font-size:1rem;">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">出力解像度</div>
+            <div class="stat-value orange" id="outDim" style="font-size:1rem;">—</div>
+          </div>
+        </div>
+
+        <button class="btn-download" id="downloadBtn">⬇ ダウンロード</button>
+        <div class="warn-msg" id="warnMsg">⚠️ 圧縮後のサイズが元より大きくなっています。品質を下げるか、WebP → JPEG に変更してみてください。</div>
+        <button class="btn-reset" id="resetBtn">別の画像を選ぶ</button>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+  let originalImage = null;
+  let originalFile = null;
+  let splitPos = 0.5;
+  let isDragging = false;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const workspace = document.getElementById('workspace');
+  const compareArea = document.getElementById('compareArea');
+  const canvasBefore = document.getElementById('canvasBefore');
+  const canvasAfter = document.getElementById('canvasAfter');
+  const divider = document.getElementById('divider');
+  const qualityRange = document.getElementById('qualityRange');
+  const qualityVal = document.getElementById('qualityVal');
+  const qualityGroup = document.getElementById('qualityGroup');
+  const formatSelect = document.getElementById('formatSelect');
+  const resizeSelect = document.getElementById('resizeSelect');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const warnMsg = document.getElementById('warnMsg');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadFile(file);
+  });
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+  function loadFile(file) {
+    originalFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        originalImage = img;
+        resizeSelect.value = '100';
+        updateDimLabel();
+        document.getElementById('origSize').textContent = formatBytes(file.size);
+        document.getElementById('origDim').textContent = img.width + '×' + img.height;
+        dropZone.style.display = 'none';
+        workspace.classList.add('visible');
+        drawBefore();
+        applyCompression();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function getOutputSize() {
+    const pct = parseInt(resizeSelect.value) / 100;
+    const w = Math.round(originalImage.width * pct);
+    const h = Math.round(originalImage.height * pct);
+    return { w, h };
+  }
+
+  function updateDimLabel() {
+    if (!originalImage) return;
+    const { w, h } = getOutputSize();
+    document.getElementById('dimLabel').textContent = w + ' × ' + h + ' px';
+  }
+
+  function drawBefore() {
+    const areaW = compareArea.offsetWidth;
+    const areaH = compareArea.offsetHeight;
+    canvasBefore.width = areaW;
+    canvasBefore.height = areaH;
+    const ctx = canvasBefore.getContext('2d');
+    ctx.clearRect(0, 0, areaW, areaH);
+    const scale = Math.min(areaW / originalImage.width, areaH / originalImage.height);
+    const dw = originalImage.width * scale;
+    const dh = originalImage.height * scale;
+    ctx.drawImage(originalImage, (areaW - dw) / 2, (areaH - dh) / 2, dw, dh);
+  }
+
+  function applyCompression() {
+    if (!originalImage) return;
+    const fmt = formatSelect.value;
+    const quality = parseInt(qualityRange.value) / 100;
+    const { w, h } = getOutputSize();
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    offscreen.getContext('2d').drawImage(originalImage, 0, 0, w, h);
+
+    const mimeType = fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
+    const dataUrl = offscreen.toDataURL(mimeType, fmt === 'png' ? undefined : quality);
+
+    const img = new Image();
+    img.onload = () => {
+      const areaW = compareArea.offsetWidth;
+      const areaH = compareArea.offsetHeight;
+      canvasAfter.width = areaW;
+      canvasAfter.height = areaH;
+      const ctx2 = canvasAfter.getContext('2d');
+      ctx2.clearRect(0, 0, areaW, areaH);
+      const scale = Math.min(areaW / img.width, areaH / img.height);
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      ctx2.drawImage(img, (areaW - dw) / 2, (areaH - dh) / 2, dw, dh);
+      updateSplit();
+
+      const compBytes = Math.round(atob(dataUrl.split(',')[1]).length);
+      const origBytes = originalFile.size;
+      document.getElementById('compSize').textContent = formatBytes(compBytes);
+      const pct = Math.round((1 - compBytes / origBytes) * 100);
+      document.getElementById('reduction').textContent = (pct > 0 ? '-' : '+') + Math.abs(pct) + '%';
+      document.getElementById('outDim').textContent = w + '×' + h;
+
+      warnMsg.classList.toggle('visible', compBytes > origBytes);
+    };
+    img.src = dataUrl;
+  }
+
+  function updateSplit() {
+    canvasAfter.style.clipPath = `inset(0 ${(100 - splitPos * 100).toFixed(1)}% 0 0)`;
+    divider.style.left = (splitPos * 100).toFixed(1) + '%';
+  }
+
+  compareArea.addEventListener('mousedown', startDrag);
+  compareArea.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e.touches[0]); }, { passive: false });
+  window.addEventListener('mousemove', drag);
+  window.addEventListener('touchmove', e => drag(e.touches[0]), { passive: false });
+  window.addEventListener('mouseup', () => isDragging = false);
+  window.addEventListener('touchend', () => isDragging = false);
+
+  function startDrag(e) { isDragging = true; drag(e); }
+  function drag(e) {
+    if (!isDragging) return;
+    const rect = compareArea.getBoundingClientRect();
+    splitPos = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    updateSplit();
+  }
+
+  qualityRange.addEventListener('input', () => {
+    qualityVal.textContent = qualityRange.value + '%';
+    applyCompression();
+  });
+
+  formatSelect.addEventListener('change', () => {
+    const fmt = formatSelect.value;
+    document.getElementById('fmtLabel').textContent = fmt.toUpperCase();
+    qualityGroup.style.opacity = fmt === 'png' ? '0.4' : '1';
+    qualityGroup.style.pointerEvents = fmt === 'png' ? 'none' : 'auto';
+    applyCompression();
+  });
+
+  resizeSelect.addEventListener('change', () => {
+    updateDimLabel();
+    applyCompression();
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!originalImage) return;
+    const fmt = formatSelect.value;
+    const quality = parseInt(qualityRange.value) / 100;
+    const { w, h } = getOutputSize();
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    offscreen.getContext('2d').drawImage(originalImage, 0, 0, w, h);
+    const mimeType = fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/png';
+    const dataUrl = offscreen.toDataURL(mimeType, fmt === 'png' ? undefined : quality);
+    const a = document.createElement('a');
+    const baseName = (originalFile.name || 'image').replace(/\.[^.]+$/, '');
+    a.download = baseName + '_gyuttee.' + (fmt === 'jpeg' ? 'jpg' : fmt);
+    a.href = dataUrl;
+    a.click();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    originalImage = null;
+    originalFile = null;
+    fileInput.value = '';
+    workspace.classList.remove('visible');
+    dropZone.style.display = '';
+    warnMsg.classList.remove('visible');
+    ['origSize','compSize','reduction','origDim','outDim'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    if (originalImage) { drawBefore(); applyCompression(); }
+  });
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+</script>
+</body>
+</html>
